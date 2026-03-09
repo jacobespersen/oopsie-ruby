@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require "net/http"
-require "json"
-require "uri"
+require 'net/http'
+require 'json'
+require 'uri'
 
 module Oopsie
   class DeliveryError < StandardError; end
 
   class Client
-    ERRORS_PATH = "/api/v1/errors"
+    ERRORS_PATH = '/api/v1/errors'
     CONNECT_TIMEOUT = 5
     READ_TIMEOUT = 10
 
@@ -29,8 +29,8 @@ module Oopsie
 
     def build_request(uri, error_class:, message:, stack_trace:)
       request = Net::HTTP::Post.new(uri)
-      request["Content-Type"] = "application/json"
-      request["Authorization"] = "Bearer #{@configuration.api_key}"
+      request['Content-Type'] = 'application/json'
+      request['Authorization'] = "Bearer #{@configuration.api_key}"
       request.body = JSON.generate(
         error_class: error_class,
         message: message,
@@ -41,7 +41,7 @@ module Oopsie
 
     def execute(uri, request)
       http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = uri.scheme == "https"
+      http.use_ssl = uri.scheme == 'https'
       http.open_timeout = CONNECT_TIMEOUT
       http.read_timeout = READ_TIMEOUT
       http.request(request)

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "oopsie/version"
-require_relative "oopsie/configuration"
-require_relative "oopsie/client"
-require_relative "oopsie/middleware"
+require_relative 'oopsie/version'
+require_relative 'oopsie/configuration'
+require_relative 'oopsie/client'
+require_relative 'oopsie/middleware'
 
 module Oopsie
   class << self
@@ -21,18 +21,21 @@ module Oopsie
 
     def report(exception)
       configuration.validate!
-      client = Client.new(configuration)
-      client.send_error(
+      Client.new(configuration).send_error(
         error_class: exception.class.name,
         message: exception.message,
         stack_trace: exception.backtrace&.join("\n")
       )
     rescue StandardError => e
-      begin
-        configuration.on_error&.call(e)
-      rescue StandardError
-        # Never crash the host app
-      end
+      safely_notify_error(e)
+    end
+
+    private
+
+    def safely_notify_error(error)
+      configuration.on_error&.call(error)
+    rescue StandardError
+      # Never crash the host app
     end
   end
 end
