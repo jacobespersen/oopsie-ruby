@@ -17,5 +17,21 @@ module Oopsie
     def reset_configuration!
       @configuration = Configuration.new
     end
+
+    def report(exception)
+      configuration.validate!
+      client = Client.new(configuration)
+      client.send_error(
+        error_class: exception.class.name,
+        message: exception.message,
+        stack_trace: exception.backtrace&.join("\n")
+      )
+    rescue StandardError => e
+      begin
+        configuration.on_error&.call(e)
+      rescue StandardError
+        # Never crash the host app
+      end
+    end
   end
 end
