@@ -22,5 +22,8 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rspec', '~> 3.12'
   spec.add_development_dependency 'rubocop', '~> 1.50'
   spec.add_development_dependency 'webmock', '~> 3.18'
+  spec.add_development_dependency 'actionpack', '~> 7.1'
+  spec.add_development_dependency 'activesupport', '~> 7.1'
+  spec.add_development_dependency 'railties', '~> 7.1'
   spec.metadata['rubygems_mfa_required'] = 'true'
 end
