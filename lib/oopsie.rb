@@ -4,6 +4,7 @@ require_relative 'oopsie/version'
 require_relative 'oopsie/configuration'
 require_relative 'oopsie/client'
 require_relative 'oopsie/middleware'
+require_relative 'oopsie/railtie' if defined?(Rails::Railtie)
 
 module Oopsie
   class << self
