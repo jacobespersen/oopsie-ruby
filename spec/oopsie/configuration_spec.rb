@@ -47,6 +47,19 @@ RSpec.describe Oopsie::Configuration do
     end
   end
 
+  describe '#ignored_exceptions' do
+    it 'defaults to an empty array' do
+      config = described_class.new
+      expect(config.ignored_exceptions).to eq([])
+    end
+
+    it 'can be set' do
+      config = described_class.new
+      config.ignored_exceptions = [RuntimeError]
+      expect(config.ignored_exceptions).to eq([RuntimeError])
+    end
+  end
+
   describe '#validate!' do
     it 'raises if api_key is missing' do
       config = described_class.new
