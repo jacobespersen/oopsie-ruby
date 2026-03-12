@@ -3,7 +3,8 @@
 Lightweight Ruby gem that reports exceptions to an [Oopsie](https://github.com/jacobespersen/oopsie) instance.
 
 - Zero runtime dependencies (uses Ruby stdlib)
-- Rack middleware for automatic error capture
+- Automatic error capture in Rails and Rack apps
+- Sidekiq integration for background job errors
 - Manual `Oopsie.report(e)` API
 - Silent failures with optional `on_error` callback
 
@@ -28,6 +29,9 @@ Oopsie.configure do |config|
   config.api_key = ENV["OOPSIE_API_KEY"]
   config.endpoint = "https://your-oopsie-instance.com"
 
+  # Optional: exceptions to ignore (subclasses are also ignored)
+  config.ignored_exceptions = [ActiveRecord::RecordNotFound, ActionController::RoutingError]
+
   # Optional: called when error reporting itself fails
   config.on_error = ->(e) { Rails.logger.warn("Oopsie error: #{e.message}") }
 end
@@ -44,22 +48,39 @@ Oopsie.configure do |config|
 end
 ```
 
+## Rails
+
+In Rails apps, the gem automatically:
+
+- Inserts Rack middleware to capture unhandled exceptions
+- Subscribes to `process_action.action_controller` notifications to capture errors handled by `rescue_from` in controllers and GraphQL schemas
+
+No manual middleware setup needed — just add the gem and configure it.
+
 ## Rack Middleware
 
-Add the middleware to automatically capture unhandled exceptions:
+For non-Rails Rack apps, add the middleware manually:
 
 ```ruby
 # config.ru
 use Oopsie::Middleware
 ```
 
-In Rails, add to `config/application.rb`:
+The middleware reports the error and re-raises it, so your existing error handling is unaffected.
+
+## Sidekiq
+
+To capture Sidekiq job errors, add the error handler in your Sidekiq server config:
 
 ```ruby
-config.middleware.use Oopsie::Middleware
+require "oopsie/sidekiq"
+
+Sidekiq.configure_server do |config|
+  config.error_handlers << Oopsie::Sidekiq::ErrorHandler.new
+end
 ```
 
-The middleware reports the error and re-raises it, so your existing error handling is unaffected.
+This reports on every job failure attempt, not just when retries are exhausted. Requires Sidekiq 7+.
 
 ## Manual Reporting
 

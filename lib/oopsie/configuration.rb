@@ -4,8 +4,12 @@ module Oopsie
   class ConfigurationError < StandardError; end
 
   class Configuration
-    attr_accessor :api_key, :on_error
+    attr_accessor :api_key, :on_error, :ignored_exceptions
     attr_reader :endpoint
+
+    def initialize
+      @ignored_exceptions = []
+    end
 
     def endpoint=(value)
       @endpoint = value&.chomp('/')
