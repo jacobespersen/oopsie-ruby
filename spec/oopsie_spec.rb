@@ -69,5 +69,54 @@ RSpec.describe Oopsie do
       expect(errors.length).to eq(1)
       expect(errors.first).to be_a(Oopsie::ConfigurationError)
     end
+
+    context 'with ignored_exceptions configured' do
+      before do
+        Oopsie.configure do |config|
+          config.ignored_exceptions = [ArgumentError]
+        end
+      end
+
+      it 'does not report ignored exception classes' do
+        stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+               .to_return(status: 202, body: '{"status":"accepted"}')
+
+        begin
+          raise ArgumentError, 'bad arg'
+        rescue StandardError => e
+          Oopsie.report(e)
+        end
+
+        expect(stub).not_to have_been_requested
+      end
+
+      it 'does not report subclasses of ignored exceptions' do
+        stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+               .to_return(status: 202, body: '{"status":"accepted"}')
+
+        custom_error = Class.new(ArgumentError)
+
+        begin
+          raise custom_error, 'subclass error'
+        rescue StandardError => e
+          Oopsie.report(e)
+        end
+
+        expect(stub).not_to have_been_requested
+      end
+
+      it 'still reports non-ignored exceptions' do
+        stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+               .to_return(status: 202, body: '{"status":"accepted"}')
+
+        begin
+          raise 'not ignored'
+        rescue StandardError => e
+          Oopsie.report(e)
+        end
+
+        expect(stub).to have_been_requested
+      end
+    end
   end
 end

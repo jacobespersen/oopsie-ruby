@@ -20,6 +20,8 @@ module Oopsie
     end
 
     def report(exception)
+      return if configuration.ignored_exceptions.any? { |klass| exception.is_a?(klass) }
+
       configuration.validate!
       Client.new(configuration).send_error(
         error_class: exception.class.name,
