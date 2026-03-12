@@ -70,6 +70,50 @@ RSpec.describe Oopsie do
       expect(errors.first).to be_a(Oopsie::ConfigurationError)
     end
 
+    context 'deduplication' do
+      it 'reports the same exception instance only once' do
+        stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+               .to_return(status: 202, body: '{"status":"accepted"}')
+
+        error = RuntimeError.new('duplicate')
+        error.set_backtrace(['test:1'])
+
+        Oopsie.report(error)
+        Oopsie.report(error)
+
+        expect(stub).to have_been_requested.once
+      end
+
+      it 'reports different instances of the same class independently' do
+        stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+               .to_return(status: 202, body: '{"status":"accepted"}')
+
+        error1 = RuntimeError.new('first')
+        error1.set_backtrace(['test:1'])
+        error2 = RuntimeError.new('second')
+        error2.set_backtrace(['test:2'])
+
+        Oopsie.report(error1)
+        Oopsie.report(error2)
+
+        expect(stub).to have_been_requested.twice
+      end
+
+      it 'reports frozen exceptions every time (cannot tag frozen objects)' do
+        stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+               .to_return(status: 202, body: '{"status":"accepted"}')
+
+        error = RuntimeError.new('frozen error')
+        error.set_backtrace(['test:1'])
+        error.freeze
+
+        Oopsie.report(error)
+        Oopsie.report(error)
+
+        expect(stub).to have_been_requested.twice
+      end
+    end
+
     context 'with ignored_exceptions configured' do
       before do
         Oopsie.configure do |config|
