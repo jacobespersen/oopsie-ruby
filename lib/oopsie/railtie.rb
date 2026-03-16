@@ -7,9 +7,7 @@ require 'active_support/notifications'
 module Oopsie
   class Railtie < Rails::Railtie
     initializer 'oopsie.middleware' do |app|
-      unless app.middleware.include?(Oopsie::Middleware)
-        app.middleware.insert_before ActionDispatch::ShowExceptions, Oopsie::Middleware
-      end
+      app.middleware.insert_before ActionDispatch::ShowExceptions, Oopsie::Middleware
     end
 
     initializer 'oopsie.subscribe' do
