@@ -9,7 +9,11 @@ module Oopsie
     def call(env)
       @app.call(env)
     rescue Exception => e # rubocop:disable Lint/RescueException
-      context = Oopsie::ContextBuilder.from_rack_env(env)
+      context = begin
+        Oopsie::ContextBuilder.from_rack_env(env)
+      rescue StandardError
+        nil
+      end
       Oopsie.report(e, context: context)
       raise
     end

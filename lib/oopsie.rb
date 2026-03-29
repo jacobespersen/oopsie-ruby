@@ -41,9 +41,15 @@ module Oopsie
         error_class: exception.class.name,
         message: exception.message,
         stack_trace: exception.backtrace&.join("\n"),
-        exception_chain: ExceptionChainBuilder.build(exception),
+        exception_chain: safe_build_chain(exception),
         execution_context: context
       }
+    end
+
+    def safe_build_chain(exception)
+      ExceptionChainBuilder.build(exception)
+    rescue StandardError
+      nil
     end
 
     def skip_report?(exception)

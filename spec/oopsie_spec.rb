@@ -146,19 +146,23 @@ RSpec.describe Oopsie do
       expect(stub).to have_been_requested
     end
 
-    it 'does not crash if exception_chain building fails' do
+    it 'still sends the report with nil exception_chain when chain building fails' do
       allow(Oopsie::ExceptionChainBuilder).to receive(:build).and_raise(StandardError, 'chain error')
 
-      errors = []
-      Oopsie.configure do |config|
-        config.on_error = ->(e) { errors << e }
-      end
+      stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+             .with do |req|
+               body = JSON.parse(req.body)
+               body['error_class'] == 'RuntimeError' &&
+                 body['message'] == 'oops' &&
+                 body['exception_chain'].nil?
+             end
+             .to_return(status: 202, body: '{"status":"accepted"}')
 
       error = RuntimeError.new('oops')
       error.set_backtrace(['test:1'])
 
       expect { Oopsie.report(error) }.not_to raise_error
-      expect(errors.length).to eq(1)
+      expect(stub).to have_been_requested
     end
 
     context 'with ignored_exceptions configured' do

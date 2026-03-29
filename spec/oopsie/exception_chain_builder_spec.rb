@@ -8,7 +8,6 @@ RSpec.describe Oopsie::ExceptionChainBuilder do
 
       chain = described_class.build(error)
 
-      puts "Built chain: #{chain.inspect}"
       expect(chain.length).to eq(1)
       expect(chain[0][:type]).to eq('RuntimeError')
       expect(chain[0][:value]).to include('boom')
@@ -155,6 +154,18 @@ RSpec.describe Oopsie::ExceptionChainBuilder do
       frame = chain[0][:stacktrace][0]
 
       expect(frame[:in_app]).to be false
+    end
+
+    it 'handles unparseable backtrace lines gracefully' do
+      error = RuntimeError.new('test')
+      error.set_backtrace(['NativeMethod:unknown'])
+
+      chain = described_class.build(error)
+      frame = chain[0][:stacktrace][0]
+
+      expect(frame[:file]).to eq('NativeMethod:unknown')
+      expect(frame[:function]).to eq('')
+      expect(frame[:lineno]).to eq(0)
     end
 
     it 'caps frames at 100 per exception' do

@@ -5,7 +5,6 @@ module Oopsie
   # Only includes routing/metadata — never request bodies, full headers,
   # or job arguments (which may contain PII).
   module ContextBuilder
-    SIDEKIQ_KEYS = %w[class display_class queue jid retry_count].freeze
     DATA_KEYS = %i[job_class queue jid retry_count].freeze
 
     module_function
@@ -23,7 +22,7 @@ module Oopsie
     def from_sidekiq(job_hash)
       values = resolve_sidekiq_values(job_hash)
       description = "#{values[:display_class] || values[:job_class] || 'Unknown'}#perform"
-      data = DATA_KEYS.each_with_object({}) { |k, h| h[k] = values[k] if values[k] }
+      data = DATA_KEYS.each_with_object({}) { |k, h| h[k] = values[k] unless values[k].nil? }
 
       { type: 'worker', description: description, data: data }
     end
@@ -43,11 +42,11 @@ module Oopsie
 
     def resolve_sidekiq_values(job_hash)
       {
-        job_class: job_hash['class'] || job_hash[:class],
-        display_class: job_hash['display_class'] || job_hash[:display_class],
-        queue: job_hash['queue'] || job_hash[:queue],
-        jid: job_hash['jid'] || job_hash[:jid],
-        retry_count: job_hash['retry_count'] || job_hash[:retry_count]
+        job_class: job_hash.key?('class') ? job_hash['class'] : job_hash[:class],
+        display_class: job_hash.key?('display_class') ? job_hash['display_class'] : job_hash[:display_class],
+        queue: job_hash.key?('queue') ? job_hash['queue'] : job_hash[:queue],
+        jid: job_hash.key?('jid') ? job_hash['jid'] : job_hash[:jid],
+        retry_count: job_hash.key?('retry_count') ? job_hash['retry_count'] : job_hash[:retry_count]
       }
     end
   end

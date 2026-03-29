@@ -13,8 +13,8 @@ module Oopsie
 
     def build(exception)
       chain = unwind(exception)
-      # Deduplicate by backtrace object identity — chained exceptions often share
-      # the same backtrace array, so we avoid re-parsing it.
+      # Deduplicate by backtrace object identity — if the same backtrace array
+      # is assigned to multiple exceptions (e.g., via set_backtrace), we avoid re-parsing it.
       parsed_backtrace_ids = {}.compare_by_identity
 
       chain.each_with_index.map do |ex, index|
@@ -60,13 +60,25 @@ module Oopsie
 
     # Prefers detailed_message (Ruby 3.2+) for richer context, ensures valid UTF-8.
     def exception_message(exception)
-      msg = if exception.respond_to?(:detailed_message)
-              exception.detailed_message(highlight: false)
-            else
-              exception.message
-            end
+      msg = raw_message(exception)
       msg = msg.to_s unless msg.is_a?(String)
       encode_utf8(msg)
+    rescue StandardError
+      fallback_message(exception)
+    end
+
+    def raw_message(exception)
+      if exception.respond_to?(:detailed_message)
+        exception.detailed_message(highlight: false)
+      else
+        exception.message
+      end
+    end
+
+    def fallback_message(exception)
+      encode_utf8(exception.message.to_s)
+    rescue StandardError
+      '(failed to retrieve exception message)'
     end
 
     def encode_utf8(str)

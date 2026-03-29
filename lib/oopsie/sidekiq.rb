@@ -6,8 +6,12 @@ module Oopsie
   module Sidekiq
     class ErrorHandler
       def call(exception, context = {}, *)
-        job = context[:job] || context['job'] || {}
-        ctx = Oopsie::ContextBuilder.from_sidekiq(job)
+        ctx = begin
+          job = context[:job] || context['job'] || {}
+          Oopsie::ContextBuilder.from_sidekiq(job)
+        rescue StandardError
+          nil
+        end
         Oopsie.report(exception, context: ctx)
       end
     end

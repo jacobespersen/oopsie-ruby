@@ -47,6 +47,14 @@ RSpec.describe Oopsie::ContextBuilder do
       expect(result[:data]).not_to have_key(:request_id)
     end
 
+    it 'excludes empty QUERY_STRING from url' do
+      env = { 'REQUEST_METHOD' => 'GET', 'PATH_INFO' => '/search', 'QUERY_STRING' => '' }
+
+      result = described_class.from_rack_env(env)
+
+      expect(result[:data][:url]).to eq('/search')
+    end
+
     it 'handles empty env with defaults' do
       result = described_class.from_rack_env({})
 
@@ -84,6 +92,14 @@ RSpec.describe Oopsie::ContextBuilder do
       result = described_class.from_sidekiq(job)
 
       expect(result[:data][:retry_count]).to eq(3)
+    end
+
+    it 'includes retry_count of 0' do
+      job = { 'class' => 'HardWorker', 'retry_count' => 0 }
+
+      result = described_class.from_sidekiq(job)
+
+      expect(result[:data][:retry_count]).to eq(0)
     end
 
     it 'handles missing keys gracefully' do
