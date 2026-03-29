@@ -9,12 +9,16 @@ RSpec.describe Oopsie do
   end
 
   describe '.report' do
-    it 'sends error_class, message, and stack_trace from an exception' do
+    it 'sends error_class, message, stack_trace, and exception_chain from an exception' do
       stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
-             .with(body: hash_including(
-               'error_class' => 'RuntimeError',
-               'message' => 'test error'
-             ))
+             .with do |req|
+               body = JSON.parse(req.body)
+               body['error_class'] == 'RuntimeError' &&
+                 body['message'] == 'test error' &&
+                 body['exception_chain'].is_a?(Array) &&
+                 body['exception_chain'].length == 1 &&
+                 body['exception_chain'][0]['type'] == 'RuntimeError'
+             end
              .to_return(status: 202, body: '{"status":"accepted"}')
 
       begin
@@ -112,6 +116,49 @@ RSpec.describe Oopsie do
 
         expect(stub).to have_been_requested.twice
       end
+    end
+
+    it 'includes execution_context when passed' do
+      stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+             .with do |req|
+               body = JSON.parse(req.body)
+               body['execution_context'] == { 'type' => 'scheduled_task', 'description' => 'daily_cleanup' }
+             end
+             .to_return(status: 202, body: '{"status":"accepted"}')
+
+      error = RuntimeError.new('cleanup failed')
+      error.set_backtrace(['app/tasks/cleanup.rb:10:in `run`'])
+
+      Oopsie.report(error, context: { type: 'scheduled_task', description: 'daily_cleanup' })
+
+      expect(stub).to have_been_requested
+    end
+
+    it 'sends null execution_context when no context is passed' do
+      stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+             .with { |req| JSON.parse(req.body)['execution_context'].nil? }
+             .to_return(status: 202, body: '{"status":"accepted"}')
+
+      error = RuntimeError.new('oops')
+      error.set_backtrace(['test:1'])
+      Oopsie.report(error)
+
+      expect(stub).to have_been_requested
+    end
+
+    it 'does not crash if exception_chain building fails' do
+      allow(Oopsie::ExceptionChainBuilder).to receive(:build).and_raise(StandardError, 'chain error')
+
+      errors = []
+      Oopsie.configure do |config|
+        config.on_error = ->(e) { errors << e }
+      end
+
+      error = RuntimeError.new('oops')
+      error.set_backtrace(['test:1'])
+
+      expect { Oopsie.report(error) }.not_to raise_error
+      expect(errors.length).to eq(1)
     end
 
     context 'with ignored_exceptions configured' do

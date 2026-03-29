@@ -45,6 +45,24 @@ RSpec.describe Oopsie::Middleware do
           .with(body: hash_including('error_class' => 'RuntimeError', 'message' => 'app exploded'))
       ).to have_been_made
     end
+
+    it 'includes HTTP execution_context in the report' do
+      begin
+        get '/api/users?id=42'
+      rescue RuntimeError
+        # expected
+      end
+
+      expect(
+        a_request(:post, 'https://oopsie.example.com/api/v1/errors')
+          .with do |req|
+            ctx = JSON.parse(req.body)['execution_context']
+            ctx['type'] == 'http' &&
+              ctx['data']['method'] == 'GET' &&
+              ctx['data']['url'] == '/api/users?id=42'
+          end
+      ).to have_been_made
+    end
   end
 
   describe 'when the app succeeds' do

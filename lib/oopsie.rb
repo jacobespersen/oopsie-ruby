@@ -3,6 +3,8 @@
 require_relative 'oopsie/version'
 require_relative 'oopsie/configuration'
 require_relative 'oopsie/client'
+require_relative 'oopsie/exception_chain_builder'
+require_relative 'oopsie/context_builder'
 require_relative 'oopsie/middleware'
 require_relative 'oopsie/railtie' if defined?(Rails::Railtie)
 require_relative 'oopsie/sidekiq' if defined?(Sidekiq)
@@ -21,21 +23,28 @@ module Oopsie
       @configuration = Configuration.new
     end
 
-    def report(exception)
+    def report(exception, context: nil)
       return if skip_report?(exception)
 
       tag_reported(exception)
       configuration.validate!
-      Client.new(configuration).send_error(
-        error_class: exception.class.name,
-        message: exception.message,
-        stack_trace: exception.backtrace&.join("\n")
-      )
+      Client.new(configuration).send_error(**build_payload(exception, context))
     rescue StandardError => e
       safely_notify_error(e)
     end
 
     private
+
+    # stack_trace kept for backwards compat; backend prefers exception_chain when present
+    def build_payload(exception, context)
+      {
+        error_class: exception.class.name,
+        message: exception.message,
+        stack_trace: exception.backtrace&.join("\n"),
+        exception_chain: ExceptionChainBuilder.build(exception),
+        execution_context: context
+      }
+    end
 
     def skip_report?(exception)
       configuration.ignored_exceptions.any? { |klass| exception.is_a?(klass) } ||

@@ -10,10 +10,14 @@ module Oopsie
       app.middleware.insert_before ActionDispatch::ShowExceptions, Oopsie::Middleware
     end
 
+    # Catches exceptions handled by rescue_from / GraphQL handlers that don't
+    # propagate up to the Rack middleware.
     initializer 'oopsie.subscribe' do
       ActiveSupport::Notifications.subscribe('process_action.action_controller') do |event|
         if (exception = event.payload[:exception_object])
-          Oopsie.report(exception)
+          env = event.payload[:headers]&.env || {}
+          context = Oopsie::ContextBuilder.from_rack_env(env)
+          Oopsie.report(exception, context: context)
         end
       end
     end

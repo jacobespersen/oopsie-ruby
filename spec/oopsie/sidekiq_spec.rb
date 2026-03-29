@@ -19,7 +19,26 @@ RSpec.describe Oopsie::Sidekiq::ErrorHandler do
       error = RuntimeError.new('job failed')
       error.set_backtrace(['app/jobs/test:1'])
 
-      described_class.new.call(error, { job: 'TestJob' })
+      described_class.new.call(error, { job: { 'class' => 'TestJob', 'queue' => 'default', 'jid' => 'abc' } })
+
+      expect(stub).to have_been_requested.once
+    end
+
+    it 'includes worker execution_context in the report' do
+      stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+             .with do |req|
+               ctx = JSON.parse(req.body)['execution_context']
+               ctx['type'] == 'worker' &&
+                 ctx['description'] == 'HardWorker#perform' &&
+                 ctx['data']['job_class'] == 'HardWorker' &&
+                 ctx['data']['queue'] == 'critical'
+             end
+             .to_return(status: 202, body: '{"status":"accepted"}')
+
+      error = RuntimeError.new('job failed')
+      error.set_backtrace(['app/jobs/test:1'])
+
+      described_class.new.call(error, { job: { 'class' => 'HardWorker', 'queue' => 'critical', 'jid' => 'xyz' } })
 
       expect(stub).to have_been_requested.once
     end

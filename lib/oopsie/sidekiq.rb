@@ -5,8 +5,10 @@ require 'oopsie'
 module Oopsie
   module Sidekiq
     class ErrorHandler
-      def call(exception, *)
-        Oopsie.report(exception)
+      def call(exception, context = {}, *)
+        job = context[:job] || context['job'] || {}
+        ctx = Oopsie::ContextBuilder.from_sidekiq(job)
+        Oopsie.report(exception, context: ctx)
       end
     end
   end
