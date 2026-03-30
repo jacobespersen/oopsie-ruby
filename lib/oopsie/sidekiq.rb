@@ -9,7 +9,8 @@ module Oopsie
         ctx = begin
           job = context[:job] || context['job'] || {}
           Oopsie::ContextBuilder.from_sidekiq(job)
-        rescue StandardError
+        rescue StandardError => e
+          Oopsie.send(:safely_notify_error, e)
           nil
         end
         Oopsie.report(exception, context: ctx)

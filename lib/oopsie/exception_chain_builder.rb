@@ -7,7 +7,8 @@ module Oopsie
     MAX_CHAIN_LENGTH = 20  # Oopsie API limit
     MAX_FRAMES = 100       # Oopsie API limit per exception entry
     NOT_IN_APP_PATTERNS = ['/gems/', '/ruby/', '/vendor/', '<internal:'].freeze
-    BACKTRACE_REGEX = /\A(.+):(\d+):in\s+[`'](.+)'\z/ # handles both pre-3.4 and 3.4+ formats
+    # Ruby 3.4 changed backtrace quoting from backtick+quote (`method') to quote+quote ('method')
+    BACKTRACE_REGEX = /\A(.+):(\d+):in\s+[`'](.+)'\z/
 
     module_function
 
@@ -53,7 +54,7 @@ module Oopsie
       {
         type: exception.class.name,
         value: exception_message(exception),
-        mechanism: { type: mechanism_type, handled: false },
+        mechanism: { type: mechanism_type, handled: false }, # handled is always false for now
         stacktrace: stacktrace
       }
     end
@@ -77,8 +78,8 @@ module Oopsie
 
     def fallback_message(exception)
       encode_utf8(exception.message.to_s)
-    rescue StandardError
-      '(failed to retrieve exception message)'
+    rescue StandardError => e
+      "(failed to retrieve exception message: #{e.class})"
     end
 
     def encode_utf8(str)

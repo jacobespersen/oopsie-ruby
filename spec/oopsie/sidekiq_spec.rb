@@ -54,6 +54,23 @@ RSpec.describe Oopsie::Sidekiq::ErrorHandler do
       expect(stub).to have_been_requested.once
     end
 
+    it 'handles string-keyed context hash' do
+      stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+             .with do |req|
+               ctx = JSON.parse(req.body)['execution_context']
+               ctx['type'] == 'worker' &&
+                 ctx['data']['job_class'] == 'StringKeyWorker'
+             end
+             .to_return(status: 202, body: '{"status":"accepted"}')
+
+      error = RuntimeError.new('job failed')
+      error.set_backtrace(['app/jobs/test:1'])
+
+      described_class.new.call(error, { 'job' => { 'class' => 'StringKeyWorker', 'queue' => 'default' } })
+
+      expect(stub).to have_been_requested.once
+    end
+
     it 'accepts extra arguments for Sidekiq 7+ compatibility' do
       stub = stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
              .to_return(status: 202, body: '{"status":"accepted"}')

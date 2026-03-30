@@ -62,6 +62,21 @@ RSpec.describe Oopsie::ExceptionChainBuilder do
       expect(chain[0][:type]).to eq('RuntimeError')
     end
 
+    it 'terminates on circular cause chains' do
+      a = RuntimeError.new('A')
+      a.set_backtrace(["test.rb:1:in `a'"])
+      b = RuntimeError.new('B')
+      b.set_backtrace(["test.rb:2:in `b'"])
+
+      allow(a).to receive(:cause).and_return(b)
+      allow(b).to receive(:cause).and_return(a)
+
+      chain = described_class.build(a)
+
+      expect(chain.length).to eq(2)
+      expect(chain.map { |e| e[:value] }).to include(match(/A/), match(/B/))
+    end
+
     it 'deduplicates shared backtrace objects across chained exceptions' do
       backtrace = ["app/test.rb:1:in `run'"]
       inner = RuntimeError.new('inner')

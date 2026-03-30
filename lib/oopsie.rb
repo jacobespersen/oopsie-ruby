@@ -48,7 +48,8 @@ module Oopsie
 
     def safe_build_chain(exception)
       ExceptionChainBuilder.build(exception)
-    rescue StandardError
+    rescue StandardError => e
+      safely_notify_error(e)
       nil
     end
 

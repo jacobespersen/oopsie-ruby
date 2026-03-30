@@ -44,6 +44,31 @@ RSpec.describe Oopsie::Client do
       expect(stub).to have_been_requested
     end
 
+    it 'passes through enriched payload fields (exception_chain, execution_context)' do
+      stub = stub_request(:post, "#{endpoint}/api/v1/errors")
+             .with do |req|
+               body = JSON.parse(req.body)
+               body['error_class'] == 'RuntimeError' &&
+                 body['exception_chain'].is_a?(Array) &&
+                 body['exception_chain'][0]['type'] == 'RuntimeError' &&
+                 body['execution_context']['type'] == 'http'
+             end
+             .to_return(status: 202, body: '{"status":"accepted"}')
+
+      client = described_class.new(Oopsie.configuration)
+      client.send_error(
+        error_class: 'RuntimeError',
+        message: 'oops',
+        stack_trace: 'test:1',
+        exception_chain: [
+          { type: 'RuntimeError', value: 'oops', mechanism: { type: 'generic', handled: false }, stacktrace: [] }
+        ],
+        execution_context: { type: 'http', description: 'GET /', data: { method: 'GET', url: '/' } }
+      )
+
+      expect(stub).to have_been_requested
+    end
+
     it 'does not raise on HTTP error' do
       stub_request(:post, "#{endpoint}/api/v1/errors").to_return(status: 500)
 

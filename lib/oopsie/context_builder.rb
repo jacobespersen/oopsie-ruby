@@ -2,8 +2,8 @@
 
 module Oopsie
   # Builds execution_context hashes for the Oopsie API.
-  # Only includes routing/metadata — never request bodies, full headers,
-  # or job arguments (which may contain PII).
+  # Only includes routing/metadata — never request bodies, sensitive headers
+  # (auth, cookies), or job arguments (which may contain PII).
   module ContextBuilder
     DATA_KEYS = %i[job_class queue jid retry_count].freeze
 

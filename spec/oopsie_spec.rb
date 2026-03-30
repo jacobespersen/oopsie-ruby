@@ -165,6 +165,23 @@ RSpec.describe Oopsie do
       expect(stub).to have_been_requested
     end
 
+    it 'calls on_error when chain building fails' do
+      allow(Oopsie::ExceptionChainBuilder).to receive(:build).and_raise(StandardError, 'chain error')
+
+      stub_request(:post, 'https://oopsie.example.com/api/v1/errors')
+        .to_return(status: 202, body: '{"status":"accepted"}')
+
+      errors = []
+      Oopsie.configuration.on_error = ->(e) { errors << e }
+
+      error = RuntimeError.new('oops')
+      error.set_backtrace(['test:1'])
+      Oopsie.report(error)
+
+      expect(errors.length).to eq(1)
+      expect(errors.first.message).to eq('chain error')
+    end
+
     context 'with ignored_exceptions configured' do
       before do
         Oopsie.configure do |config|

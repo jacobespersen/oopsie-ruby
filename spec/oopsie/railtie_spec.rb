@@ -24,7 +24,8 @@ RSpec.describe Oopsie::Railtie do
           context = begin
             env = event.payload[:headers]&.env || {}
             Oopsie::ContextBuilder.from_rack_env(env)
-          rescue StandardError
+          rescue StandardError => e
+            Oopsie.send(:safely_notify_error, e)
             nil
           end
           Oopsie.report(exception, context: context)

@@ -11,7 +11,8 @@ module Oopsie
     rescue Exception => e # rubocop:disable Lint/RescueException
       context = begin
         Oopsie::ContextBuilder.from_rack_env(env)
-      rescue StandardError
+      rescue StandardError => context_error
+        Oopsie.send(:safely_notify_error, context_error)
         nil
       end
       Oopsie.report(e, context: context)

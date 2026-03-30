@@ -63,6 +63,17 @@ RSpec.describe Oopsie::Middleware do
           end
       ).to have_been_made
     end
+
+    it 'still reports and re-raises when context building fails' do
+      allow(Oopsie::ContextBuilder).to receive(:from_rack_env).and_raise(StandardError, 'ctx boom')
+
+      expect { get '/' }.to raise_error(RuntimeError, 'app exploded')
+
+      expect(
+        a_request(:post, 'https://oopsie.example.com/api/v1/errors')
+          .with(body: hash_including('error_class' => 'RuntimeError'))
+      ).to have_been_made
+    end
   end
 
   describe 'when the app succeeds' do
