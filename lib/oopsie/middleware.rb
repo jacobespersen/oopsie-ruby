@@ -12,7 +12,7 @@ module Oopsie
       context = begin
         Oopsie::ContextBuilder.from_rack_env(env)
       rescue StandardError => context_error
-        Oopsie.send(:safely_notify_error, context_error)
+        Oopsie.safely_notify_error(context_error)
         nil
       end
       Oopsie.report(e, context: context)

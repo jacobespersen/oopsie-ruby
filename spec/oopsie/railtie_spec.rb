@@ -22,10 +22,10 @@ RSpec.describe Oopsie::Railtie do
       @subscriber = ActiveSupport::Notifications.subscribe('process_action.action_controller') do |event|
         if (exception = event.payload[:exception_object])
           context = begin
-            env = event.payload[:headers]&.env || {}
-            Oopsie::ContextBuilder.from_rack_env(env)
+            env = event.payload[:headers]&.env
+            env ? Oopsie::ContextBuilder.from_rack_env(env) : nil
           rescue StandardError => e
-            Oopsie.send(:safely_notify_error, e)
+            Oopsie.safely_notify_error(e)
             nil
           end
           Oopsie.report(exception, context: context)

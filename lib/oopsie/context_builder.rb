@@ -4,6 +4,7 @@ module Oopsie
   # Builds execution_context hashes for the Oopsie API.
   # Only includes routing/metadata — never request bodies, sensitive headers
   # (auth, cookies), or job arguments (which may contain PII).
+  # Note: query strings are excluded from the URL as they may contain sensitive parameters.
   module ContextBuilder
     DATA_KEYS = %i[job_class queue jid retry_count].freeze
 
@@ -32,9 +33,7 @@ module Oopsie
     end
 
     def build_http_data(env, method, path)
-      query = env['QUERY_STRING']
-      url = query && !query.empty? ? "#{path}?#{query}" : path
-      data = { method: method, url: url }
+      data = { method: method, url: path }
       data[:content_type] = env['CONTENT_TYPE'] if env['CONTENT_TYPE']
       data[:request_id] = env['HTTP_X_REQUEST_ID'] if env['HTTP_X_REQUEST_ID']
       data

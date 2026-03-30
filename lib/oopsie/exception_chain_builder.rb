@@ -7,7 +7,7 @@ module Oopsie
     MAX_CHAIN_LENGTH = 20  # Oopsie API limit
     MAX_FRAMES = 100       # Oopsie API limit per exception entry
     NOT_IN_APP_PATTERNS = ['/gems/', '/ruby/', '/vendor/', '<internal:'].freeze
-    # Ruby 3.4 changed backtrace quoting from backtick+quote (`method') to quote+quote ('method')
+    # Ruby < 3.4 uses backtick+quote (`method'), Ruby >= 3.4 uses quote+quote ('method')
     BACKTRACE_REGEX = /\A(.+):(\d+):in\s+[`'](.+)'\z/
 
     module_function
@@ -15,7 +15,8 @@ module Oopsie
     def build(exception)
       chain = unwind(exception)
       # Deduplicate by backtrace object identity — if the same backtrace array
-      # is assigned to multiple exceptions (e.g., via set_backtrace), we avoid re-parsing it.
+      # is shared across exceptions (e.g., re-raised exceptions or manual set_backtrace),
+      # we avoid re-parsing it.
       parsed_backtrace_ids = {}.compare_by_identity
 
       chain.each_with_index.map do |ex, index|
@@ -54,7 +55,7 @@ module Oopsie
       {
         type: exception.class.name,
         value: exception_message(exception),
-        mechanism: { type: mechanism_type, handled: false }, # handled is always false for now
+        mechanism: { type: mechanism_type, handled: false },
         stacktrace: stacktrace
       }
     end

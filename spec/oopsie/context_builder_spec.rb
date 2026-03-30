@@ -13,12 +13,12 @@ RSpec.describe Oopsie::ContextBuilder do
       expect(result[:data][:url]).to eq('/api/users')
     end
 
-    it 'includes query string in url' do
-      env = { 'REQUEST_METHOD' => 'GET', 'PATH_INFO' => '/search', 'QUERY_STRING' => 'q=hello' }
+    it 'excludes query string from url to avoid PII leakage' do
+      env = { 'REQUEST_METHOD' => 'GET', 'PATH_INFO' => '/search', 'QUERY_STRING' => 'q=hello&token=secret' }
 
       result = described_class.from_rack_env(env)
 
-      expect(result[:data][:url]).to eq('/search?q=hello')
+      expect(result[:data][:url]).to eq('/search')
       expect(result[:description]).to eq('GET /search')
     end
 
@@ -47,8 +47,8 @@ RSpec.describe Oopsie::ContextBuilder do
       expect(result[:data]).not_to have_key(:request_id)
     end
 
-    it 'excludes empty QUERY_STRING from url' do
-      env = { 'REQUEST_METHOD' => 'GET', 'PATH_INFO' => '/search', 'QUERY_STRING' => '' }
+    it 'never includes QUERY_STRING in url' do
+      env = { 'REQUEST_METHOD' => 'GET', 'PATH_INFO' => '/search', 'QUERY_STRING' => 'page=2' }
 
       result = described_class.from_rack_env(env)
 

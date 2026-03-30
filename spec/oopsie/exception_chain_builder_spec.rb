@@ -35,6 +35,31 @@ RSpec.describe Oopsie::ExceptionChainBuilder do
       expect(chain[1][:mechanism]).to eq({ type: 'generic', handled: false })
     end
 
+    it 'builds 3-deep chain with correct mechanism types' do
+      chain = nil
+      begin
+        begin
+          begin
+            raise TypeError, 'root'
+          rescue TypeError
+            raise ArgumentError, 'middle'
+          end
+        rescue ArgumentError
+          raise 'outer'
+        end
+      rescue RuntimeError => e
+        chain = described_class.build(e)
+      end
+
+      expect(chain.length).to eq(3)
+      expect(chain[0][:type]).to eq('TypeError')
+      expect(chain[0][:mechanism][:type]).to eq('chained')
+      expect(chain[1][:type]).to eq('ArgumentError')
+      expect(chain[1][:mechanism][:type]).to eq('chained')
+      expect(chain[2][:type]).to eq('RuntimeError')
+      expect(chain[2][:mechanism][:type]).to eq('generic')
+    end
+
     it 'caps chain at 20 entries' do
       chain = build_deep_chain(25)
       result = described_class.build(chain)
@@ -125,6 +150,27 @@ RSpec.describe Oopsie::ExceptionChainBuilder do
 
       expect(chain[0][:value]).to be_a(String)
     end
+
+    it 'falls back to message when detailed_message raises' do
+      error = RuntimeError.new('fallback msg')
+      error.set_backtrace(["test.rb:1:in `x'"])
+      allow(error).to receive(:detailed_message).and_raise(NoMethodError, 'broken')
+
+      chain = described_class.build(error)
+
+      expect(chain[0][:value]).to include('fallback msg')
+    end
+
+    it 'returns placeholder when both detailed_message and message raise' do
+      error = RuntimeError.new('test')
+      error.set_backtrace(["test.rb:1:in `x'"])
+      allow(error).to receive(:detailed_message).and_raise(NoMethodError, 'broken')
+      allow(error).to receive(:message).and_raise(RuntimeError, 'also broken')
+
+      chain = described_class.build(error)
+
+      expect(chain[0][:value]).to match(/failed to retrieve exception message/)
+    end
   end
 
   describe 'frame parsing' do
@@ -169,6 +215,19 @@ RSpec.describe Oopsie::ExceptionChainBuilder do
       frame = chain[0][:stacktrace][0]
 
       expect(frame[:in_app]).to be false
+    end
+
+    it 'parses Ruby 3.4 single-quote backtrace lines' do
+      error = RuntimeError.new('test')
+      error.set_backtrace(["app/models/user.rb:42:in 'find_or_raise'"])
+
+      chain = described_class.build(error)
+      frame = chain[0][:stacktrace][0]
+
+      expect(frame[:file]).to eq('app/models/user.rb')
+      expect(frame[:function]).to eq('find_or_raise')
+      expect(frame[:lineno]).to eq(42)
+      expect(frame[:in_app]).to be true
     end
 
     it 'handles unparseable backtrace lines gracefully' do

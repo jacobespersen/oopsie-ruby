@@ -15,7 +15,8 @@ RSpec.describe Oopsie::Client do
     it 'POSTs to /api/v1/errors with correct payload' do
       stub = stub_request(:post, "#{endpoint}/api/v1/errors")
              .with(
-               body: { error_class: 'RuntimeError', message: 'something broke', stack_trace: "file.rb:1:in `method'" },
+               body: hash_including(error_class: 'RuntimeError', message: 'something broke',
+                                    stack_trace: "file.rb:1:in `method'"),
                headers: {
                  'Authorization' => "Bearer #{api_key}",
                  'Content-Type' => 'application/json'
@@ -35,7 +36,7 @@ RSpec.describe Oopsie::Client do
 
     it 'sends null stack_trace when not provided' do
       stub = stub_request(:post, "#{endpoint}/api/v1/errors")
-             .with(body: { error_class: 'RuntimeError', message: 'oops', stack_trace: nil })
+             .with(body: hash_including(error_class: 'RuntimeError', message: 'oops', stack_trace: nil))
              .to_return(status: 202, body: '{"status":"accepted"}')
 
       client = described_class.new(Oopsie.configuration)

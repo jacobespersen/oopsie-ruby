@@ -59,7 +59,7 @@ RSpec.describe Oopsie::Middleware do
             ctx = JSON.parse(req.body)['execution_context']
             ctx['type'] == 'http' &&
               ctx['data']['method'] == 'GET' &&
-              ctx['data']['url'] == '/api/users?id=42'
+              ctx['data']['url'] == '/api/users'
           end
       ).to have_been_made
     end

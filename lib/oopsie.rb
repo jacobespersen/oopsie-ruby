@@ -33,6 +33,12 @@ module Oopsie
       safely_notify_error(e)
     end
 
+    def safely_notify_error(error)
+      configuration.on_error&.call(error)
+    rescue StandardError
+      # Never crash the host app
+    end
+
     private
 
     # stack_trace kept for backwards compat; backend prefers exception_chain when present
@@ -62,12 +68,6 @@ module Oopsie
       exception.instance_variable_set(:@_oopsie_reported, true)
     rescue FrozenError
       # Frozen exceptions can't be tagged — skip dedup, proceed with reporting
-    end
-
-    def safely_notify_error(error)
-      configuration.on_error&.call(error)
-    rescue StandardError
-      # Never crash the host app
     end
   end
 end
