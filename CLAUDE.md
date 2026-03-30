@@ -33,23 +33,29 @@ bundle exec rake
 
 ## Architecture
 
-- `lib/oopsie.rb` — Main module: `Oopsie.configure`, `Oopsie.report(exception)`, `Oopsie.reset_configuration!`
+- `lib/oopsie.rb` — Main module: `Oopsie.configure`, `Oopsie.report(exception, context:)`, `Oopsie.reset_configuration!`
 - `lib/oopsie/configuration.rb` — `Configuration` class with `api_key`, `endpoint`, `on_error` callback, and `validate!`; `ConfigurationError` exception
 - `lib/oopsie/client.rb` — `Client` class: POSTs to `/api/v1/errors` with Bearer auth; `DeliveryError` exception. Never raises — calls `on_error` callback on failure
-- `lib/oopsie/middleware.rb` — Rack middleware: catches exceptions, reports via `Oopsie.report`, re-raises original error
+- `lib/oopsie/exception_chain_builder.rb` — Walks `Exception#cause` chain, parses backtrace frames with `in_app` heuristic, deduplicates shared backtraces, scrubs invalid UTF-8
+- `lib/oopsie/context_builder.rb` — Builds execution context hashes from Rack env (HTTP) or Sidekiq job hash (worker); excludes PII
+- `lib/oopsie/middleware.rb` — Rack middleware: catches exceptions, reports via `Oopsie.report` with HTTP context, re-raises original error
 - `lib/oopsie/version.rb` — Gem version constant
 
 ### Error reporting flow
 
-`Oopsie.report(exception)` → validates config → `Client#send_error` POSTs `{error_class, message, stack_trace}` to `{endpoint}/api/v1/errors` with `Authorization: Bearer {api_key}`. On any failure (network, HTTP error, bad config), swallows the error and optionally calls `configuration.on_error.(e)`.
+`Oopsie.report(exception, context:)` → validates config → builds enriched payload (`error_class`, `message`, `stack_trace`, `exception_chain`, `execution_context`) → `Client#send_error` POSTs to `{endpoint}/api/v1/errors` with `Authorization: Bearer {api_key}`. The `exception_chain` walks `Exception#cause` for root-cause analysis; `execution_context` captures HTTP or worker metadata. Enrichment failures degrade gracefully to `nil`. On any failure (network, HTTP error, bad config), swallows the error and optionally calls `configuration.on_error.(e)`.
 
 ### Test structure
 
 - `spec/spec_helper.rb` — WebMock disables network; `Oopsie.reset_configuration!` runs after each test
 - `spec/oopsie/configuration_spec.rb` — Configuration defaults, validation, `Oopsie.configure` block
 - `spec/oopsie/client_spec.rb` — HTTP request format, error handling, callback behavior
-- `spec/oopsie_spec.rb` — `Oopsie.report` integration: exception serialization, config validation
-- `spec/oopsie/middleware_spec.rb` — Rack middleware: reports errors, re-raises, passes through success
+- `spec/oopsie_spec.rb` — `Oopsie.report` integration: exception serialization, config validation, enriched context
+- `spec/oopsie/exception_chain_builder_spec.rb` — Chain unwinding, frame parsing, message fallbacks, deduplication
+- `spec/oopsie/context_builder_spec.rb` — HTTP and Sidekiq context building, PII exclusion
+- `spec/oopsie/middleware_spec.rb` — Rack middleware: reports errors with context, re-raises, passes through success
+- `spec/oopsie/railtie_spec.rb` — Rails subscriber: reports with HTTP context from notifications
+- `spec/oopsie/sidekiq_spec.rb` — Sidekiq error handler: reports with worker context
 
 ## Key Conventions
 

@@ -16,9 +16,9 @@ module Oopsie
       @configuration = configuration
     end
 
-    def send_error(error_class:, message:, stack_trace:)
+    def send_error(**payload)
       uri = URI.join(@configuration.endpoint, ERRORS_PATH)
-      request = build_request(uri, error_class:, message:, stack_trace:)
+      request = build_request(uri, payload)
       response = execute(uri, request)
       handle_response(response)
     rescue StandardError => e
@@ -27,15 +27,11 @@ module Oopsie
 
     private
 
-    def build_request(uri, error_class:, message:, stack_trace:)
+    def build_request(uri, payload)
       request = Net::HTTP::Post.new(uri)
       request['Content-Type'] = 'application/json'
       request['Authorization'] = "Bearer #{@configuration.api_key}"
-      request.body = JSON.generate(
-        error_class: error_class,
-        message: message,
-        stack_trace: stack_trace
-      )
+      request.body = JSON.generate(payload)
       request
     end
 

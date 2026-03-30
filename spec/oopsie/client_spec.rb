@@ -15,7 +15,8 @@ RSpec.describe Oopsie::Client do
     it 'POSTs to /api/v1/errors with correct payload' do
       stub = stub_request(:post, "#{endpoint}/api/v1/errors")
              .with(
-               body: { error_class: 'RuntimeError', message: 'something broke', stack_trace: "file.rb:1:in `method'" },
+               body: hash_including(error_class: 'RuntimeError', message: 'something broke',
+                                    stack_trace: "file.rb:1:in `method'"),
                headers: {
                  'Authorization' => "Bearer #{api_key}",
                  'Content-Type' => 'application/json'
@@ -35,11 +36,36 @@ RSpec.describe Oopsie::Client do
 
     it 'sends null stack_trace when not provided' do
       stub = stub_request(:post, "#{endpoint}/api/v1/errors")
-             .with(body: { error_class: 'RuntimeError', message: 'oops', stack_trace: nil })
+             .with(body: hash_including(error_class: 'RuntimeError', message: 'oops', stack_trace: nil))
              .to_return(status: 202, body: '{"status":"accepted"}')
 
       client = described_class.new(Oopsie.configuration)
       client.send_error(error_class: 'RuntimeError', message: 'oops', stack_trace: nil)
+
+      expect(stub).to have_been_requested
+    end
+
+    it 'passes through enriched payload fields (exception_chain, execution_context)' do
+      stub = stub_request(:post, "#{endpoint}/api/v1/errors")
+             .with do |req|
+               body = JSON.parse(req.body)
+               body['error_class'] == 'RuntimeError' &&
+                 body['exception_chain'].is_a?(Array) &&
+                 body['exception_chain'][0]['type'] == 'RuntimeError' &&
+                 body['execution_context']['type'] == 'http'
+             end
+             .to_return(status: 202, body: '{"status":"accepted"}')
+
+      client = described_class.new(Oopsie.configuration)
+      client.send_error(
+        error_class: 'RuntimeError',
+        message: 'oops',
+        stack_trace: 'test:1',
+        exception_chain: [
+          { type: 'RuntimeError', value: 'oops', mechanism: { type: 'generic', handled: false }, stacktrace: [] }
+        ],
+        execution_context: { type: 'http', description: 'GET /', data: { method: 'GET', url: '/' } }
+      )
 
       expect(stub).to have_been_requested
     end
